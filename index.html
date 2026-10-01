@@ -1,0 +1,935 @@
+```html
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>ZOMBIEMRQ</title>
+
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: #111;
+            font-family: Arial;
+        }
+
+        canvas {
+            display: block;
+            background: #566b43;
+        }
+
+        /* ================= JUDUL GAME ================= */
+
+        #gameTitle {
+            position: fixed;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: red;
+            font-size: 30px;
+            font-weight: bold;
+            letter-spacing: 5px;
+            text-shadow: 3px 3px 0 black;
+            z-index: 20;
+            pointer-events: none;
+        }
+
+        #gameSubtitle {
+            position: fixed;
+            top: 47px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: white;
+            font-size: 13px;
+            font-weight: bold;
+            letter-spacing: 3px;
+            text-shadow: 2px 2px 0 black;
+            z-index: 20;
+            pointer-events: none;
+        }
+
+        /* ================= INFO ================= */
+
+        #info {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            color: white;
+            background: rgba(0,0,0,0.7);
+            padding: 10px;
+            border-radius: 8px;
+            z-index: 10;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- NAMA GAME -->
+    <div id="gameTitle">ZOMBIEMRQ</div>
+    <div id="gameSubtitle">ZOMBIE MRQ</div>
+
+    <!-- INFO GAME -->
+    <div id="info">
+        ❤️ HP: <span id="hp">100</span>
+        &nbsp;&nbsp;
+        ☠️ Score: <span id="score">0</span>
+        &nbsp;&nbsp;
+        🌊 Wave: <span id="wave">1</span>
+        <br>
+        WASD = Bergerak | Klik Kanan = Tembak
+    </div>
+
+    <canvas id="game"></canvas>
+
+<script>
+
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+let keys = {};
+let bullets = [];
+let zombies = [];
+let trees = [];
+let buildings = [];
+
+let score = 0;
+let wave = 1;
+let gameOver = false;
+
+
+/* ================= PLAYER ================= */
+
+const player = {
+    x: canvas.width / 2,
+    y: canvas.height / 2,
+    speed: 4,
+    hp: 100,
+    angle: 0
+};
+
+
+function drawPlayer() {
+
+    ctx.save();
+
+    ctx.translate(player.x, player.y);
+    ctx.rotate(player.angle);
+
+    // kaki
+    ctx.fillStyle = "#202020";
+    ctx.fillRect(-13, 15, 9, 18);
+    ctx.fillRect(4, 15, 9, 18);
+
+    // sepatu
+    ctx.fillStyle = "#111";
+    ctx.fillRect(-15, 30, 11, 5);
+    ctx.fillRect(4, 30, 11, 5);
+
+    // badan
+    ctx.fillStyle = "#2878c8";
+    ctx.fillRect(-17, -8, 34, 28);
+
+    // tangan
+    ctx.fillStyle = "#d8a078";
+    ctx.fillRect(-23, -3, 8, 18);
+    ctx.fillRect(15, -3, 8, 18);
+
+    // kepala
+    ctx.fillStyle = "#d8a078";
+    ctx.fillRect(-13, -30, 26, 23);
+
+    // rambut
+    ctx.fillStyle = "#252525";
+    ctx.fillRect(-13, -34, 26, 8);
+
+    // mata
+    ctx.fillStyle = "black";
+    ctx.fillRect(5, -22, 4, 4);
+
+    // senjata
+    ctx.fillStyle = "#333";
+    ctx.fillRect(12, -3, 35, 7);
+
+    ctx.fillStyle = "#111";
+    ctx.fillRect(40, -5, 12, 11);
+
+    ctx.restore();
+}
+
+
+/* ================= ZOMBIE ================= */
+
+function drawZombie(z) {
+
+    ctx.save();
+
+    ctx.translate(z.x, z.y);
+
+    // kaki
+    ctx.fillStyle = "#243d25";
+    ctx.fillRect(-12, 15, 9, 18);
+    ctx.fillRect(3, 15, 9, 18);
+
+    // badan
+    ctx.fillStyle = z.boss ? "#571515" : "#3c8038";
+    ctx.fillRect(-17, -8, 34, 27);
+
+    // tangan
+    ctx.fillStyle = "#6b8f45";
+    ctx.fillRect(-23, -4, 7, 22);
+    ctx.fillRect(16, -4, 7, 22);
+
+    // kepala
+    ctx.fillStyle = "#78a84d";
+    ctx.fillRect(-14, -31, 28, 24);
+
+    // mata
+    ctx.fillStyle = "red";
+    ctx.fillRect(-8, -22, 5, 5);
+    ctx.fillRect(5, -22, 5, 5);
+
+    // mulut
+    ctx.fillStyle = "#111";
+    ctx.fillRect(-8, -12, 16, 4);
+
+    // boss crown
+    if (z.boss) {
+
+        ctx.fillStyle = "gold";
+
+        ctx.fillRect(-17, -39, 34, 8);
+        ctx.fillRect(-12, -45, 7, 8);
+        ctx.fillRect(5, -45, 7, 8);
+    }
+
+    ctx.restore();
+
+    // HP boss
+    if (z.boss) {
+
+        ctx.fillStyle = "black";
+
+        ctx.fillRect(
+            z.x - 30,
+            z.y - 55,
+            60,
+            7
+        );
+
+        ctx.fillStyle = "red";
+
+        ctx.fillRect(
+            z.x - 30,
+            z.y - 55,
+            60 * (z.hp / z.maxHp),
+            7
+        );
+    }
+}
+
+
+/* ================= PELURU ================= */
+
+function drawBullets() {
+
+    ctx.fillStyle = "yellow";
+
+    bullets.forEach(b => {
+
+        ctx.fillRect(
+            b.x,
+            b.y,
+            7,
+            4
+        );
+
+    });
+}
+
+
+/* ================= POHON ================= */
+
+function createTrees() {
+
+    for (let i = 0; i < 25; i++) {
+
+        trees.push({
+
+            x: Math.random() * canvas.width,
+
+            y: Math.random() * canvas.height
+
+        });
+
+    }
+}
+
+
+function drawTrees() {
+
+    trees.forEach(t => {
+
+        // batang
+        ctx.fillStyle = "#54351e";
+
+        ctx.fillRect(
+            t.x - 7,
+            t.y,
+            14,
+            35
+        );
+
+        // daun
+        ctx.fillStyle = "#174d20";
+
+        ctx.fillRect(
+            t.x - 25,
+            t.y - 30,
+            50,
+            40
+        );
+
+        ctx.fillStyle = "#226b29";
+
+        ctx.fillRect(
+            t.x - 18,
+            t.y - 45,
+            36,
+            25
+        );
+
+    });
+}
+
+
+/* ================= BANGUNAN ================= */
+
+function createBuildings() {
+
+    buildings = [
+
+        {
+            x: 100,
+            y: 120,
+            w: 180,
+            h: 120
+        },
+
+        {
+            x: canvas.width - 300,
+            y: 100,
+            w: 190,
+            h: 130
+        },
+
+        {
+            x: 80,
+            y: canvas.height - 220,
+            w: 210,
+            h: 130
+        },
+
+        {
+            x: canvas.width - 330,
+            y: canvas.height - 230,
+            w: 230,
+            h: 140
+        }
+
+    ];
+}
+
+
+function drawBuildings() {
+
+    buildings.forEach(b => {
+
+        ctx.fillStyle = "#6e6255";
+
+        ctx.fillRect(
+            b.x,
+            b.y,
+            b.w,
+            b.h
+        );
+
+        // atap rusak
+        ctx.fillStyle = "#403b35";
+
+        ctx.beginPath();
+
+        ctx.moveTo(
+            b.x,
+            b.y
+        );
+
+        ctx.lineTo(
+            b.x + b.w / 2,
+            b.y - 35
+        );
+
+        ctx.lineTo(
+            b.x + b.w,
+            b.y
+        );
+
+        ctx.fill();
+
+        // jendela
+        ctx.fillStyle = "#171717";
+
+        ctx.fillRect(
+            b.x + 30,
+            b.y + 35,
+            35,
+            45
+        );
+
+        ctx.fillRect(
+            b.x + b.w - 65,
+            b.y + 35,
+            35,
+            45
+        );
+
+        // lubang rusak
+        ctx.fillStyle = "#302c28";
+
+        ctx.fillRect(
+            b.x + 80,
+            b.y + 80,
+            55,
+            40
+        );
+
+    });
+}
+
+
+/* ================= SPAWN ZOMBIE ================= */
+
+function spawnZombie() {
+
+    let side =
+        Math.floor(Math.random() * 4);
+
+    let x, y;
+
+    if (side === 0) {
+
+        x = Math.random() * canvas.width;
+        y = -50;
+
+    }
+
+    if (side === 1) {
+
+        x = canvas.width + 50;
+        y = Math.random() * canvas.height;
+
+    }
+
+    if (side === 2) {
+
+        x = Math.random() * canvas.width;
+        y = canvas.height + 50;
+
+    }
+
+    if (side === 3) {
+
+        x = -50;
+        y = Math.random() * canvas.height;
+
+    }
+
+    let fast = Math.random() < 0.3;
+
+    zombies.push({
+
+        x: x,
+        y: y,
+
+        speed: fast ? 2.5 : 1.1,
+
+        hp: 30,
+
+        maxHp: 30,
+
+        damage: fast ? 0.3 : 0.2,
+
+        boss: false
+
+    });
+}
+
+
+/* ================= BOSS ================= */
+
+function spawnBoss() {
+
+    zombies.push({
+
+        x: canvas.width / 2,
+
+        y: -80,
+
+        speed: 0.8,
+
+        hp: 400,
+
+        maxHp: 400,
+
+        damage: 0.8,
+
+        boss: true
+
+    });
+}
+
+
+/* ================= TEMBAK ================= */
+
+canvas.addEventListener(
+    "contextmenu",
+    e => {
+        e.preventDefault();
+    }
+);
+
+
+canvas.addEventListener(
+    "mousedown",
+    e => {
+
+        if (
+            e.button === 2 &&
+            !gameOver
+        ) {
+
+            let dx =
+                e.clientX - player.x;
+
+            let dy =
+                e.clientY - player.y;
+
+            let angle =
+                Math.atan2(dy, dx);
+
+            player.angle = angle;
+
+            bullets.push({
+
+                x: player.x,
+
+                y: player.y,
+
+                vx:
+                    Math.cos(angle) * 10,
+
+                vy:
+                    Math.sin(angle) * 10
+
+            });
+        }
+
+    }
+);
+
+
+/* ================= KEYBOARD ================= */
+
+document.addEventListener(
+    "keydown",
+    e => {
+
+        keys[e.key.toLowerCase()] = true;
+
+    }
+);
+
+
+document.addEventListener(
+    "keyup",
+    e => {
+
+        keys[e.key.toLowerCase()] = false;
+
+    }
+);
+
+
+/* ================= UPDATE PLAYER ================= */
+
+function updatePlayer() {
+
+    if (keys["w"])
+        player.y -= player.speed;
+
+    if (keys["s"])
+        player.y += player.speed;
+
+    if (keys["a"])
+        player.x -= player.speed;
+
+    if (keys["d"])
+        player.x += player.speed;
+
+
+    player.x = Math.max(
+        20,
+        Math.min(
+            canvas.width - 20,
+            player.x
+        )
+    );
+
+
+    player.y = Math.max(
+        20,
+        Math.min(
+            canvas.height - 20,
+            player.y
+        )
+    );
+}
+
+
+/* ================= UPDATE BULLET ================= */
+
+function updateBullets() {
+
+    bullets.forEach(b => {
+
+        b.x += b.vx;
+        b.y += b.vy;
+
+    });
+
+    bullets = bullets.filter(b =>
+
+        b.x > 0 &&
+        b.x < canvas.width &&
+        b.y > 0 &&
+        b.y < canvas.height
+
+    );
+}
+
+
+/* ================= UPDATE ZOMBIE ================= */
+
+function updateZombies() {
+
+    zombies.forEach(z => {
+
+        let dx =
+            player.x - z.x;
+
+        let dy =
+            player.y - z.y;
+
+        let distance =
+            Math.sqrt(
+                dx * dx +
+                dy * dy
+            );
+
+        if (distance > 0) {
+
+            z.x +=
+                dx / distance *
+                z.speed;
+
+            z.y +=
+                dy / distance *
+                z.speed;
+
+        }
+
+        if (distance < 40) {
+
+            player.hp -= z.damage;
+
+        }
+
+    });
+}
+
+
+/* ================= TABRAKAN PELURU ================= */
+
+function bulletCollision() {
+
+    bullets.forEach((b, bi) => {
+
+        zombies.forEach((z, zi) => {
+
+            let dx =
+                b.x - z.x;
+
+            let dy =
+                b.y - z.y;
+
+            let distance =
+                Math.sqrt(
+                    dx * dx +
+                    dy * dy
+                );
+
+            if (
+                distance <
+                (z.boss ? 35 : 25)
+            ) {
+
+                z.hp -= 20;
+
+                bullets.splice(
+                    bi,
+                    1
+                );
+
+                if (z.hp <= 0) {
+
+                    zombies.splice(
+                        zi,
+                        1
+                    );
+
+                    score +=
+                        z.boss
+                        ? 1000
+                        : 100;
+
+                    if (
+                        score % 500 === 0
+                    ) {
+
+                        wave++;
+
+                    }
+
+                }
+
+            }
+
+        });
+
+    });
+}
+
+
+/* ================= GAME UPDATE ================= */
+
+function update() {
+
+    if (gameOver)
+        return;
+
+    updatePlayer();
+
+    updateBullets();
+
+    updateZombies();
+
+    bulletCollision();
+
+
+    document.getElementById(
+        "hp"
+    ).innerText =
+        Math.max(
+            0,
+            Math.floor(player.hp)
+        );
+
+
+    document.getElementById(
+        "score"
+    ).innerText =
+        score;
+
+
+    document.getElementById(
+        "wave"
+    ).innerText =
+        wave;
+
+
+    if (player.hp <= 0) {
+
+        gameOver = true;
+
+        alert(
+            "GAME OVER! Score kamu: " +
+            score
+        );
+
+        location.reload();
+
+    }
+}
+
+
+/* ================= DRAW ================= */
+
+function draw() {
+
+    ctx.clearRect(
+        0,
+        0,
+        canvas.width,
+        canvas.height
+    );
+
+    // tanah
+    ctx.fillStyle = "#566b43";
+
+    ctx.fillRect(
+        0,
+        0,
+        canvas.width,
+        canvas.height
+    );
+
+
+    // jalan vertikal
+    ctx.fillStyle = "#77746c";
+
+    ctx.fillRect(
+
+        canvas.width / 2 - 70,
+
+        0,
+
+        140,
+
+        canvas.height
+
+    );
+
+
+    // jalan horizontal
+    ctx.fillRect(
+
+        0,
+
+        canvas.height / 2 - 70,
+
+        canvas.width,
+
+        140
+
+    );
+
+
+    drawBuildings();
+
+    drawTrees();
+
+    drawBullets();
+
+    zombies.forEach(drawZombie);
+
+    drawPlayer();
+}
+
+
+/* ================= MAIN ================= */
+
+createTrees();
+
+createBuildings();
+
+
+/* SPAWN ZOMBIE */
+
+setInterval(() => {
+
+    if (!gameOver) {
+
+        spawnZombie();
+
+        if (
+            zombies.length > 12
+        ) {
+
+            zombies.shift();
+
+        }
+
+    }
+
+}, 1200);
+
+
+/* ================= BOSS ================= */
+
+setInterval(() => {
+
+    if (
+        !gameOver &&
+        score >= 1000
+    ) {
+
+        let alreadyBoss =
+            zombies.some(
+                z => z.boss
+            );
+
+        if (!alreadyBoss) {
+
+            spawnBoss();
+
+        }
+
+    }
+
+}, 5000);
+
+
+/* ================= GAME LOOP ================= */
+
+function gameLoop() {
+
+    update();
+
+    draw();
+
+    requestAnimationFrame(
+        gameLoop
+    );
+}
+
+
+gameLoop();
+
+
+/* ================= RESPONSIVE ================= */
+
+window.addEventListener(
+    "resize",
+    () => {
+
+        canvas.width =
+            window.innerWidth;
+
+        canvas.height =
+            window.innerHeight;
+
+        createBuildings();
+
+    }
+);
+
+</script>
+
+</body>
+</html>
+```
